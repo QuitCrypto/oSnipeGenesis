@@ -75,13 +75,12 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   }
 
   function mintWatchers(uint256 amount) external payable {
-    // FIGURE OUT HOW TO HANDLE TRANSFERS, DO WATCHERS RETAIN THEIR PASSES?
     watchersMinted[msg.sender] += amount;
 
     if (watchersMinted[msg.sender] > maxWatchersPermitted(msg.sender, _sniperAndProviderBalance(msg.sender))) {
       revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(msg.sender, _sniperAndProviderBalance(msg.sender)));
     }
-    // if (balanceOf(msg.sender, 0) < 1) revert SnipersOnly();
+
     if (msg.value != amount * watcherPrice) revert WrongValueSent();
 
     super._mint(msg.sender, WATCHER_ID, amount, "0x");
