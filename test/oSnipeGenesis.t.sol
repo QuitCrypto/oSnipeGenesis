@@ -3,9 +3,12 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "../src/oSnipeGenesis.sol";
+import "../src/IERC1155Guardable.sol";
 
 contract oSnipeGenesisTest is Test {
     oSnipeGenesis public oSnipe;
+    IERC1155Guardable public guardable;
+
     address internal add1 = address(0x5B38Da6a701c568545dCfcB03FcB875f56beddC4);
     address internal add2 = address(0x584524C5fdB7aFc0d747A6750c9027E1122F781C);
     bytes32[] internal proof1 = [bytes32(0xedc8cf70ab67dc4b181347b7137477d7f9ef1829f4da8bdbdf438f96e558a0ef),0xbfa96226c0ca390b353f10c0ee96e2552a5927c149b200e85f70f987f84b4ae1];
@@ -83,12 +86,13 @@ contract oSnipeGenesisTest is Test {
         vm.assume(ownerAddress != failAddress);
         vm.assume(ownerAddress != guardAddress);
         vm.assume(guardAddress != failAddress);
+        vm.assume(guardAddress != address(0));
         // Guardian should be 0 address to start
         assertTrue(oSnipe.guardianOf(ownerAddress) == address(0));
         startHoax(ownerAddress);
 
         // Try to set self as guardian
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.OwnerIsGuardian.selector));
+        vm.expectRevert(abi.encodeWithSelector(IERC1155Guardable.InvalidGuardian.selector));
         oSnipe.lockApprovals(ownerAddress);
         // Set an address as guardian
         oSnipe.lockApprovals(guardAddress);
@@ -107,6 +111,8 @@ contract oSnipeGenesisTest is Test {
     }
 
     function testclaimGenesisAndLock(address guardian) public {
+        vm.assume(guardian != address(0));
+        vm.assume(guardian != add1);
         hoax(add1);
         oSnipe.claimGenesisAndLock(proof1, guardian);
         assertTrue(oSnipe.balanceOf(add1, 0) == 1);
@@ -115,6 +121,8 @@ contract oSnipeGenesisTest is Test {
     }
 
     function testMintAndLock(address guardian) public {
+        vm.assume(guardian != address(0));
+        vm.assume(guardian != add1);
         oSnipe.flipSaleState();
         oSnipe.setPrice(80000000000000000);
         hoax(add1);
@@ -138,7 +146,7 @@ contract oSnipeGenesisTest is Test {
         oSnipe.setApprovalForAll(operatorAddress, false);
         assertFalse(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
 
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TokenIsLocked.selector));
+        vm.expectRevert(abi.encodeWithSelector(IERC1155Guardable.TokenIsLocked.selector));
         oSnipe.setApprovalForAll(operatorAddress, true);
         assertFalse(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
     }

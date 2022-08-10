@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "./ERC1155Guardable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-contract oSnipeGenesis is ERC1155, Ownable {
+contract oSnipeGenesis is ERC1155Guardable, Ownable {
   uint256 constant MAX_SUPPLY = 488;
   uint256 CURRENT_SUPPLY;
   uint256 genesisPrice;
@@ -17,9 +17,6 @@ contract oSnipeGenesis is ERC1155, Ownable {
   error NotEnoughTokens();
   error AlreadyClaimed();
   error InvalidProof(bytes32[] proof);
-  error TokenIsLocked();
-  error CallerGuardianMismatch(address caller, address guardian);
-  error OwnerIsGuardian();
   error WrongValueSent();
   error SaleIsPaused();
 
@@ -92,34 +89,6 @@ contract oSnipeGenesis is ERC1155, Ownable {
     merkleRoot = _root;
   }
 
-  function lockApprovals(address guardian) public {
-    if (_msgSender() == guardian) {
-      revert OwnerIsGuardian();
-    }
-
-    locks[_msgSender()] = guardian;
-  }
-
-  function guardianOf(address tokenOwner) public view returns (address) {
-    return locks[tokenOwner];
-  }
-
-  function unlockApprovals(address tokenOwner) external {
-    if (_msgSender() != guardianOf(tokenOwner)) {
-      revert CallerGuardianMismatch(_msgSender(), guardianOf(tokenOwner));
-    }
-    locks[tokenOwner] = address(0);
-  }
-
-
-  function setApprovalForAll(address operator, bool approved) public override {
-    if (locks[_msgSender()] != address(0) && approved) {
-      revert TokenIsLocked();
-    }
-
-    super.setApprovalForAll(operator, approved);
-  }
-  
   function currentSupply() public view returns(uint256) {
     return CURRENT_SUPPLY;
   }
@@ -145,4 +114,15 @@ contract oSnipeGenesis is ERC1155, Ownable {
     super._mint(to, 0, amount, "0x");
   }
 
+
+  // Token 0, 1, 2, 3
+    // Token 0: Sniper's Pass
+      // Claimable by snipers, otherwise purchaseable
+      // Allows setting additional users
+    // Token 1: Watcher's Pass
+      // Purchaseable by snipers
+      // Gives read only access
+    // Token 2: Provider's Pass
+      // Purchaseable by snipers, burns Snipers Pass
+      // Allows setting custom webhooks
 }
