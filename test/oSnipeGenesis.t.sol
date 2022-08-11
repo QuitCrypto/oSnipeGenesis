@@ -91,10 +91,13 @@ contract oSnipeGenesisTest is Test {
 
     function testTokenLocks(address guardAddress, address ownerAddress, address failAddress) public {
         // Sender will never be zero address
-        vm.assume(ownerAddress != failAddress);
-        vm.assume(ownerAddress != guardAddress);
-        vm.assume(guardAddress != failAddress);
-        vm.assume(guardAddress != address(0));
+        vm.assume(
+            ownerAddress != failAddress &&
+            ownerAddress != guardAddress &&
+            guardAddress != failAddress &&
+            guardAddress != address(0)
+        );
+
         // Guardian should be 0 address to start
         assertTrue(oSnipe.guardianOf(ownerAddress) == address(0));
         startHoax(ownerAddress);
@@ -102,6 +105,7 @@ contract oSnipeGenesisTest is Test {
         // Try to set self as guardian
         vm.expectRevert(abi.encodeWithSelector(IERC1155Guardable.InvalidGuardian.selector));
         oSnipe.lockApprovals(ownerAddress);
+
         // Set an address as guardian
         oSnipe.lockApprovals(guardAddress);
         assertTrue(oSnipe.guardianOf(ownerAddress) == guardAddress);
@@ -110,12 +114,13 @@ contract oSnipeGenesisTest is Test {
         changePrank(failAddress);
         vm.expectRevert(abi.encodeWithSignature("CallerGuardianMismatch(address,address)", failAddress, guardAddress));
         oSnipe.unlockApprovals(ownerAddress);
+
         // Use guardian address to unlock approvals
         changePrank(guardAddress);
         oSnipe.unlockApprovals(ownerAddress);
+
         // Guardian should now be 0 address again
         assertTrue(oSnipe.guardianOf(ownerAddress) == address(0));
-        // assertTrue(oSnipe.locks[add1] == add2);
     }
 
     function testclaimSnipersPassAndLock(address guardian) public {
@@ -144,23 +149,53 @@ contract oSnipeGenesisTest is Test {
         assertTrue(oSnipe.guardianOf(add1) == guardian);
     }
 
-    function testApprovals(address ownerAddress, address operatorAddress, address guardianAddress) public {
-        vm.assume(ownerAddress != operatorAddress);
-        vm.assume(ownerAddress != guardianAddress);
-        vm.assume(operatorAddress != guardianAddress);
-        vm.assume(guardianAddress != address(0));
+    function testApprovals() public {
+        address ownerAddress = address(1);
+        address operatorAddress = address(2);
+        address guardianAddress = address(3);
+
         // set approval 
         startHoax(ownerAddress);
         oSnipe.setApprovalForAll(operatorAddress, true);
         assertTrue(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
 
+        // lock approvals
         oSnipe.lockApprovals(guardianAddress);
+
+        // can still revoke approvals
         oSnipe.setApprovalForAll(operatorAddress, false);
         assertFalse(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
 
+        // cannot set new approvals
         vm.expectRevert(abi.encodeWithSelector(IERC1155Guardable.TokenIsLocked.selector));
         oSnipe.setApprovalForAll(operatorAddress, true);
         assertFalse(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
+
+        // unlock approvals
+        changePrank(guardianAddress);
+        oSnipe.unlockApprovals(ownerAddress);
+        changePrank(ownerAddress);
+        
+        // can now set new approvals
+        oSnipe.setApprovalForAll(operatorAddress, true);
+        assertTrue(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
+
+        // mint some sniper passes
+        changePrank(oSnipe.owner());
+        oSnipe.mintTo(ownerAddress);
+
+        // mint some watchers
+        changePrank(ownerAddress);
+        oSnipe.mintWatchers(10);
+
+        // approvedForAll returns false 
+        assertFalse(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
+
+        // burn watchers
+        oSnipe.burnWatchers(10);
+
+        // approvedForAll now returns true
+        assertTrue(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
     }
 
     function testSetURI(string memory uri, uint256 tokenId) public {
@@ -236,7 +271,7 @@ contract oSnipeGenesisTest is Test {
         oSnipe.burnWatchers(1);
     }
 
-    function testTransferLocks(uint256 amount) public {
+    function testTransferLocks() public {
         testmintWatchers(5);
         ids.push(0);
         amounts.push(1);
@@ -261,7 +296,7 @@ contract oSnipeGenesisTest is Test {
     }
 
     function testTransfersWithMultiplePasses() public {
-        testTransferLocks(5);
+        testTransferLocks();
 
         changePrank(oSnipe.owner());
         oSnipe.mintTo(add1);
@@ -305,7 +340,7 @@ contract oSnipeGenesisTest is Test {
     }
 
     function testTransfersWithMultipleProviders() public {
-        testTransferLocks(5);
+        testTransferLocks();
 
         changePrank(oSnipe.owner());
         oSnipe.mintTo(add1);

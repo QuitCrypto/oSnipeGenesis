@@ -37,7 +37,6 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   error TooManyOutstandingWatchers(uint256 numberOfWatchers, uint256 numberAllowed);
 
   mapping(address => bool) public bloodlistClaimed;
-  mapping(address => address) public locks;
   mapping(address => bool) public mintUsed;
 
   bool public saleIsActive = false;
@@ -77,8 +76,8 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   function mintWatchers(uint256 amount) external payable {
     watchersMinted[msg.sender] += amount;
 
-    if (watchersMinted[msg.sender] > maxWatchersPermitted(msg.sender, _sniperAndProviderBalance(msg.sender))) {
-      revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(msg.sender, _sniperAndProviderBalance(msg.sender)));
+    if (watchersMinted[msg.sender] > maxWatchersPermitted(_sniperAndProviderBalance(msg.sender))) {
+      revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(_sniperAndProviderBalance(msg.sender)));
     }
 
     if (msg.value != amount * watcherPrice) revert WrongValueSent();
@@ -120,7 +119,7 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     claimSnipersPass(_proof);
   }
 
-  function maxWatchersPermitted(address sniper, uint256 sniperAndProviderBalance) public view returns (uint) {
+  function maxWatchersPermitted(uint256 sniperAndProviderBalance) public pure returns (uint) {
     return sniperAndProviderBalance * MAX_WATCHERS_PER_SNIPER;
   }
 
@@ -135,7 +134,7 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
       uint256 newBalance = _sniperAndProviderBalance(msg.sender) - amount;
 
       if (watchersMinted[msg.sender] > newBalance * MAX_WATCHERS_PER_SNIPER) {
-        revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(msg.sender, newBalance));
+        revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(newBalance));
       }
     }
     super.safeTransferFrom(from, to, id, amount, data);
@@ -156,13 +155,19 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
       }
 
       if (watchersMinted[msg.sender] > newBalance * MAX_WATCHERS_PER_SNIPER) {
-        revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(msg.sender, newBalance));
+        revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(newBalance));
       }
       super.safeBatchTransferFrom(from, to, ids, amounts, data);
   }
 
   function setMerkleRoot(bytes32 _root) public onlyOwner {
     merkleRoot = _root;
+  }
+
+  function isApprovedForAll(address account, address operator) public view override returns (bool) {
+    if (balanceOf(account, 1) > 0) return false;
+
+    return super.isApprovedForAll(account, operator);
   }
 
   function currentSupply() public view returns(uint256) {
@@ -178,7 +183,7 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     if (!success) revert WrongValueSent();
   }
 
-  function _sniperAndProviderBalance(address user) internal returns (uint256) {
+  function _sniperAndProviderBalance(address user) internal view returns (uint256) {
     return balanceOf(user, SNIPER_ID) + balanceOf(user, PROVIDER_ID);
   }
 
