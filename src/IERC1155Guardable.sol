@@ -5,7 +5,7 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 interface IERC1155Guardable is IERC165 {
-  // Interface ID 0x48615a68
+  // Interface ID 0xb043e146
 
   error TokenIsLocked();
   error CallerGuardianMismatch(address caller, address guardian);

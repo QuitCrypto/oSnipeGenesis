@@ -1,0 +1,14 @@
+{
+  "attributes": [
+      {
+          "trait_type": "Type",
+          "value": "Sniper"
+      },
+      {
+        "trait_type": "Committed?",
+        "value": "True"
+      }
+  ],
+  "image": "ipfs://QmNmXNTZigdkJvmMDrgeC3QaCgQdahwxzgYmNRCLeKBQJ6",
+  "name": "Sniper's Pass (Committed)"
+}

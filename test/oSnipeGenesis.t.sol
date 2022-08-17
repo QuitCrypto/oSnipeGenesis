@@ -23,19 +23,19 @@ contract oSnipeGenesisTest is Test {
     uint256[] amounts;
 
     function setUp() public {
-        oSnipe = new oSnipeGenesis();
+        oSnipe = new oSnipeGenesis("ipfs://QmbXsZDont9qApzRL1tvkKF6suPpXcLuxPtcMyNt6AdTcc/");
         oSnipe.setMerkleRoot(0x3e82b7d669c35b1793116c650619d6ad9d8ed8bafb2ec0d1d614fe4f333ad9d5);
     }
 
     function testOwnerMint() public {
         // Mint from owner to address
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
         assertTrue(oSnipe.totalSupply(SNIPER_ID) == 13);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 13);
 
         // Can't mint again
         vm.expectRevert();
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
 
         // Transfer from non-owner to non-owner
         startHoax(add1);
@@ -45,7 +45,7 @@ contract oSnipeGenesisTest is Test {
 
         // Can't mint as non-owner
         vm.expectRevert("Ownable: caller is not the owner");
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
     }
 
     function testGenesisClaim() public {
@@ -156,12 +156,6 @@ contract oSnipeGenesisTest is Test {
         assertTrue(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
     }
 
-    function testSetURI(string memory uri, uint256 tokenId) public {
-        vm.assume(tokenId <= 777);
-        oSnipe.setURI(uri);
-        assertTrue(keccak256(abi.encodePacked(oSnipe.uri(tokenId))) == keccak256(abi.encodePacked(uri)));
-    }
-
     function testmintObservers(uint256 amount) public {
         vm.assume(amount < 10 && amount > 0);
         oSnipe.flipSaleState();
@@ -192,7 +186,7 @@ contract oSnipeGenesisTest is Test {
         testmintObservers(amount);
 
         changePrank(oSnipe.owner());
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
         changePrank(add1);
         oSnipe.mintObservers{value: 0.03 ether * amount}(amount);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 12);
@@ -205,10 +199,10 @@ contract oSnipeGenesisTest is Test {
 
         startHoax(add1);
         vm.expectRevert('ERC1155: burn amount exceeds totalSupply');
-        oSnipe.burnForPurveyor{value: 3 ether }();
+        oSnipe.burnForPurveyor{value: 3 ether }(1);
 
         oSnipe.mintSnipers{value: 0.5 ether }();
-        oSnipe.burnForPurveyor{value: 3 ether }();
+        oSnipe.burnForPurveyor{value: 3 ether }(1);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
         assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 1);
     }
@@ -259,7 +253,7 @@ contract oSnipeGenesisTest is Test {
         testTransferLocks();
 
         changePrank(oSnipe.owner());
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
 
         // balance: 13 snipers, 0 observers
         changePrank(add1);
@@ -303,12 +297,12 @@ contract oSnipeGenesisTest is Test {
         testTransferLocks();
 
         changePrank(oSnipe.owner());
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
 
         // balance: 13 snipers, 0 observers, 0 purveyors
         changePrank(add1);
         for (uint256 index = 0; index < 7; index++) {
-            oSnipe.burnForPurveyor{value: 3 ether }();
+            oSnipe.burnForPurveyor{value: 3 ether }(1);
         }
         // balance: 6 snipers, 0 observers, 7 purveyors
 
