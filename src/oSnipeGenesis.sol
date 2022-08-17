@@ -22,10 +22,12 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   mapping(address => uint256) watchersMinted;
 
   uint8 private constant SNIPER_ID = 0;
-  uint8 private constant WATCHER_ID = 1;
-  uint8 private constant PROVIDER_ID = 2;
+  uint8 private constant PROVIDER_ID = 1;
+  uint8 private constant WATCHER_ID = 2;
 
-  constructor() ERC1155("oSnipe") { }
+  constructor() ERC1155("oSnipe") { 
+    
+  }
 
   error NotEnoughTokens();
   error AlreadyClaimed();
@@ -56,7 +58,7 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     if (quitMinted) revert();
 
     quitMinted = true;
-    _mint(to, 13);
+    _mintSnipers(to, 13);
   }
 
   function mintSnipersPass() public payable {
@@ -65,7 +67,7 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     if (mintUsed[_msgSender()]) revert AlreadyClaimed();
 
     mintUsed[_msgSender()] = true;
-    _mint(_msgSender(), 1);
+    _mintSnipers(_msgSender(), 1);
   }
 
   function mintSnipersPassAndLock(address guardian) external payable {
@@ -74,13 +76,15 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   }
 
   function mintWatchers(uint256 amount) external payable {
-    watchersMinted[msg.sender] += amount;
+    if (msg.value != amount * watcherPrice) revert WrongValueSent();
 
-    if (watchersMinted[msg.sender] > maxWatchersPermitted(_sniperAndProviderBalance(msg.sender))) {
-      revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(_sniperAndProviderBalance(msg.sender)));
+    uint256 newBalance = watchersMinted[msg.sender] + amount;
+
+    if (newBalance > maxWatchersPermitted(_sniperAndProviderBalance(msg.sender))) {
+      revert TooManyOutstandingWatchers(newBalance, maxWatchersPermitted(_sniperAndProviderBalance(msg.sender)));
     }
 
-    if (msg.value != amount * watcherPrice) revert WrongValueSent();
+    watchersMinted[msg.sender] = newBalance;
 
     super._mint(msg.sender, WATCHER_ID, amount, "0x");
   }
@@ -111,7 +115,7 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
 
     bloodlistClaimed[_msgSender()] = true;
 
-    _mint(_msgSender(), 1);
+    _mintSnipers(_msgSender(), 1);
   }
 
   function claimSnipersPassAndLock(bytes32[] calldata _proof, address guardian) external {
@@ -170,7 +174,7 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     return super.isApprovedForAll(account, operator);
   }
 
-  function currentSupply() public view returns(uint256) {
+  function totalSupply() public view returns(uint256) {
     return CURRENT_SUPPLY;
   }
 
@@ -187,8 +191,8 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     return balanceOf(user, SNIPER_ID) + balanceOf(user, PROVIDER_ID);
   }
 
-  function _mint(address to, uint256 amount) internal {
-    if (currentSupply() + amount > MAX_SNIPERS_SUPPLY) revert NotEnoughTokens();
+  function _mintSnipers(address to, uint256 amount) internal {
+    if (totalSupply() + amount > MAX_SNIPERS_SUPPLY) revert NotEnoughTokens();
 
     unchecked {
       CURRENT_SUPPLY += amount;
