@@ -29,7 +29,7 @@ contract oSnipeGenesisTest is Test {
     function testOwnerMint() public {
         // Mint from owner to address
         oSnipe.mintTo(add1);
-        assertTrue(oSnipe.totalSupply() == 13);
+        assertTrue(oSnipe.totalSupply(SNIPER_ID) == 13);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 13);
 
         // Can't mint again
@@ -53,7 +53,7 @@ contract oSnipeGenesisTest is Test {
         oSnipe.claimSnipersPass(proof1);
 
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
-        assertTrue(oSnipe.totalSupply() == 1);
+        assertTrue(oSnipe.totalSupply(SNIPER_ID) == 1);
 
         //mint with invalid proof
         startHoax(add2);
@@ -86,7 +86,7 @@ contract oSnipeGenesisTest is Test {
         // With the correct amount
         oSnipe.mintSnipersPass{value: 80000000000000000}();
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
-        assertTrue(oSnipe.totalSupply() == 1);
+        assertTrue(oSnipe.totalSupply(SNIPER_ID) == 1);
 
         // Can't purchase twice
         vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.AlreadyClaimed.selector));
@@ -133,7 +133,7 @@ contract oSnipeGenesisTest is Test {
         hoax(add1);
         oSnipe.claimSnipersPassAndLock(proof1, guardian);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
-        assertTrue(oSnipe.totalSupply() == 1);
+        assertTrue(oSnipe.totalSupply(SNIPER_ID) == 1);
         assertTrue(oSnipe.guardianOf(add1) == guardian);
     }
 
@@ -149,7 +149,7 @@ contract oSnipeGenesisTest is Test {
         hoax(add1);
         oSnipe.mintSnipersPassAndLock{value: 80000000000000000}(guardian);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
-        assertTrue(oSnipe.totalSupply() == 1);
+        assertTrue(oSnipe.totalSupply(SNIPER_ID) == 1);
         assertTrue(oSnipe.guardianOf(add1) == guardian);
     }
 
@@ -250,7 +250,7 @@ contract oSnipeGenesisTest is Test {
         oSnipe.setPrice(prices);
 
         startHoax(add1);
-        vm.expectRevert('ERC1155: burn amount exceeds balance');
+        vm.expectRevert('ERC1155: burn amount exceeds totalSupply');
         oSnipe.burnForProvider{value: 500000000000000000}();
 
         oSnipe.mintSnipersPass{value: 80000000000000000}();

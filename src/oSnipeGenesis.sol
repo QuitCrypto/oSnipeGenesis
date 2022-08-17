@@ -13,7 +13,6 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
 
   uint256 public constant MAX_SNIPERS_SUPPLY = 488;
   uint256 public constant MAX_WATCHERS_PER_SNIPER = 10;
-  uint256 private CURRENT_SUPPLY;
   uint256 public sniperPrice;
   uint256 public watcherPrice;
   uint256 public providerPrice;
@@ -174,10 +173,6 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     return super.isApprovedForAll(account, operator);
   }
 
-  function totalSupply() public view returns(uint256) {
-    return CURRENT_SUPPLY;
-  }
-
   function setURI(string memory newuri) public onlyOwner {
     _setURI(newuri);
   }
@@ -192,11 +187,7 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   }
 
   function _mintSnipers(address to, uint256 amount) internal {
-    if (totalSupply() + amount > MAX_SNIPERS_SUPPLY) revert NotEnoughTokens();
-
-    unchecked {
-      CURRENT_SUPPLY += amount;
-    }
+    if (totalSupply(SNIPER_ID) + amount > MAX_SNIPERS_SUPPLY) revert NotEnoughTokens();
 
     super._mint(to, SNIPER_ID, amount, "0x");
   }

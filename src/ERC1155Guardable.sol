@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "./IERC1155Guardable.sol";
 
 /**
@@ -27,7 +27,7 @@ import "./IERC1155Guardable.sol";
  * safeBatchTransferFrom, so it is important to remain careful.
  */
 
-abstract contract ERC1155Guardable is ERC1155, IERC1155Guardable {
+abstract contract ERC1155Guardable is ERC1155Supply, IERC1155Guardable {
   mapping(address => address) private locks;
 
   function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, IERC165) returns (bool) {
