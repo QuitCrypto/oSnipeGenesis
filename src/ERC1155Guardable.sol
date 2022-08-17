@@ -34,7 +34,7 @@ abstract contract ERC1155Guardable is ERC1155Supply, IERC1155Guardable {
     return interfaceId == type(IERC1155Guardable).interfaceId || super.supportsInterface(interfaceId);
   }
 
-  function lockApprovals(address guardian) public {
+  function setGuardian(address guardian) public {
     if (msg.sender == guardian || guardian == address(0)) {
       revert InvalidGuardian();
     }
@@ -47,7 +47,7 @@ abstract contract ERC1155Guardable is ERC1155Supply, IERC1155Guardable {
     return locks[tokenOwner];
   }
 
-  function unlockApprovals(address tokenOwner) external {
+  function removeGuardianOf(address tokenOwner) external {
     if (msg.sender != guardianOf(tokenOwner)) {
       revert CallerGuardianMismatch(msg.sender, guardianOf(tokenOwner));
     }

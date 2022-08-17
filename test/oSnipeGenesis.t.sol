@@ -10,10 +10,11 @@ contract oSnipeGenesisTest is Test {
     IERC1155Guardable public guardable;
 
     uint8 private constant SNIPER_ID = 0;
-    uint8 private constant PROVIDER_ID = 1;
-    uint8 private constant WATCHER_ID = 2;
+    uint8 private constant PURVEYOR_ID = 1;
+    uint8 private constant OBSERVER_ID = 2;
+    uint8 private constant COMMITTED_SNIPER_ID = 10;
+    uint8 private constant COMMITTED_PURVEYOR_ID = 11;
 
-    uint256[] prices;
     address internal add1 = address(0x5B38Da6a701c568545dCfcB03FcB875f56beddC4);
     address internal add2 = address(0x584524C5fdB7aFc0d747A6750c9027E1122F781C);
     bytes32[] internal proof1 = [bytes32(0xedc8cf70ab67dc4b181347b7137477d7f9ef1829f4da8bdbdf438f96e558a0ef),0xbfa96226c0ca390b353f10c0ee96e2552a5927c149b200e85f70f987f84b4ae1];
@@ -28,13 +29,13 @@ contract oSnipeGenesisTest is Test {
 
     function testOwnerMint() public {
         // Mint from owner to address
-        oSnipe.mintTo(add1);
+        // oSnipe.mintTo(add1);
         assertTrue(oSnipe.totalSupply(SNIPER_ID) == 13);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 13);
 
         // Can't mint again
         vm.expectRevert();
-        oSnipe.mintTo(add1);
+        // oSnipe.mintTo(add1);
 
         // Transfer from non-owner to non-owner
         startHoax(add1);
@@ -44,13 +45,13 @@ contract oSnipeGenesisTest is Test {
 
         // Can't mint as non-owner
         vm.expectRevert("Ownable: caller is not the owner");
-        oSnipe.mintTo(add1);
+        // oSnipe.mintTo(add1);
     }
 
     function testGenesisClaim() public {
         // mint with valid proofs
         hoax(add1);
-        oSnipe.claimSnipersPass(proof1);
+        oSnipe.claimSniper(proof1);
 
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
         assertTrue(oSnipe.totalSupply(SNIPER_ID) == 1);
@@ -58,39 +59,35 @@ contract oSnipeGenesisTest is Test {
         //mint with invalid proof
         startHoax(add2);
         vm.expectRevert(abi.encodeWithSignature("InvalidProof(bytes32[])", proof1));
-        oSnipe.claimSnipersPass(proof1);
+        oSnipe.claimSniper(proof1);
     }
 
     function testGenesisMint() public {
         startHoax(add1);
-        prices.push(80000000000000000);
-        prices.push(0);
-        prices.push(0);
 
         // When sale is paused
         vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.SaleIsPaused.selector));
-        oSnipe.mintSnipersPass();
+        oSnipe.mintSnipers();
 
         // When sale is active
         changePrank(oSnipe.owner());
         oSnipe.flipSaleState();
-        oSnipe.setPrice(prices);
         changePrank(add1);
 
         // When the wrong amount is sent
         vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.WrongValueSent.selector));
-        oSnipe.mintSnipersPass{value: 40000000000000000}();
+        oSnipe.mintSnipers{value: 0.4 ether}();
         vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.WrongValueSent.selector));
-        oSnipe.mintSnipersPass{value: 160000000000000000}();
+        oSnipe.mintSnipers{value: 1.6 ether}();
 
         // With the correct amount
-        oSnipe.mintSnipersPass{value: 80000000000000000}();
+        oSnipe.mintSnipers{value: 0.5 ether}();
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
         assertTrue(oSnipe.totalSupply(SNIPER_ID) == 1);
 
         // Can't purchase twice
         vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.AlreadyClaimed.selector));
-        oSnipe.mintSnipersPass{value: 80000000000000000}();
+        oSnipe.mintSnipers{value: 0.5 ether}();
     }
 
     function testTokenLocks(address guardAddress, address ownerAddress, address failAddress) public {
@@ -108,49 +105,23 @@ contract oSnipeGenesisTest is Test {
 
         // Try to set self as guardian
         vm.expectRevert(abi.encodeWithSelector(IERC1155Guardable.InvalidGuardian.selector));
-        oSnipe.lockApprovals(ownerAddress);
+        oSnipe.setGuardian(ownerAddress);
 
         // Set an address as guardian
-        oSnipe.lockApprovals(guardAddress);
+        oSnipe.setGuardian(guardAddress);
         assertTrue(oSnipe.guardianOf(ownerAddress) == guardAddress);
 
         // try unlocking from address that's not guardian
         changePrank(failAddress);
         vm.expectRevert(abi.encodeWithSignature("CallerGuardianMismatch(address,address)", failAddress, guardAddress));
-        oSnipe.unlockApprovals(ownerAddress);
+        oSnipe.removeGuardianOf(ownerAddress);
 
         // Use guardian address to unlock approvals
         changePrank(guardAddress);
-        oSnipe.unlockApprovals(ownerAddress);
+        oSnipe.removeGuardianOf(ownerAddress);
 
         // Guardian should now be 0 address again
         assertTrue(oSnipe.guardianOf(ownerAddress) == address(0));
-    }
-
-    function testclaimSnipersPassAndLock(address guardian) public {
-        vm.assume(guardian != address(0));
-        vm.assume(guardian != add1);
-        hoax(add1);
-        oSnipe.claimSnipersPassAndLock(proof1, guardian);
-        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
-        assertTrue(oSnipe.totalSupply(SNIPER_ID) == 1);
-        assertTrue(oSnipe.guardianOf(add1) == guardian);
-    }
-
-    function testMintAndLock(address guardian) public {
-        prices.push(80000000000000000);
-        prices.push(0);
-        prices.push(0);
-
-        vm.assume(guardian != address(0));
-        vm.assume(guardian != add1);
-        oSnipe.flipSaleState();
-        oSnipe.setPrice(prices);
-        hoax(add1);
-        oSnipe.mintSnipersPassAndLock{value: 80000000000000000}(guardian);
-        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
-        assertTrue(oSnipe.totalSupply(SNIPER_ID) == 1);
-        assertTrue(oSnipe.guardianOf(add1) == guardian);
     }
 
     function testApprovals() public {
@@ -164,7 +135,7 @@ contract oSnipeGenesisTest is Test {
         assertTrue(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
 
         // lock approvals
-        oSnipe.lockApprovals(guardianAddress);
+        oSnipe.setGuardian(guardianAddress);
 
         // can still revoke approvals
         oSnipe.setApprovalForAll(operatorAddress, false);
@@ -177,29 +148,12 @@ contract oSnipeGenesisTest is Test {
 
         // unlock approvals
         changePrank(guardianAddress);
-        oSnipe.unlockApprovals(ownerAddress);
+        oSnipe.removeGuardianOf(ownerAddress);
         changePrank(ownerAddress);
         
         // can now set new approvals
         oSnipe.setApprovalForAll(operatorAddress, true);
         assertTrue(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
-
-        // // mint some sniper passes
-        // changePrank(oSnipe.owner());
-        // oSnipe.mintTo(ownerAddress);
-
-        // // mint some watchers
-        // changePrank(ownerAddress);
-        // oSnipe.mintWatchers(10);
-
-        // // approvedForAll returns false 
-        // assertFalse(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
-
-        // // burn watchers
-        // oSnipe.burnWatchers(10);
-
-        // // approvedForAll now returns true
-        // assertTrue(oSnipe.isApprovedForAll(ownerAddress, operatorAddress));
     }
 
     function testSetURI(string memory uri, uint256 tokenId) public {
@@ -208,94 +162,96 @@ contract oSnipeGenesisTest is Test {
         assertTrue(keccak256(abi.encodePacked(oSnipe.uri(tokenId))) == keccak256(abi.encodePacked(uri)));
     }
 
-    function testmintWatchers(uint256 amount) public {
+    function testmintObservers(uint256 amount) public {
         vm.assume(amount < 10 && amount > 0);
         oSnipe.flipSaleState();
-        prices.push(80000000000000000);
-        prices.push(10000000000000000);
-        prices.push(500000000000000000);
-        oSnipe.setPrice(prices);
 
         // mint with no snipers pass
         startHoax(add1);
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, amount, 0));
-        oSnipe.mintWatchers{value: 10000000000000000 * amount}(amount);
+        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingObservers.selector, amount, 0));
+        oSnipe.mintObservers{value: 0.03 ether * amount }(amount);
 
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_PURVEYOR_ID) == 0);
         // mint with 1 snipers pass
-        oSnipe.mintSnipersPass{value: 80000000000000000}();
-        oSnipe.mintWatchers{value: 10000000000000000 * amount}(amount);
+        oSnipe.mintSnipers{value: 0.5 ether }();
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
-        assertTrue(oSnipe.balanceOf(add1, WATCHER_ID) == amount);
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, amount + 10, 10));
-        oSnipe.mintWatchers{value: 100000000000000000}(10);
+        oSnipe.mintObservers{value: 0.03 ether * amount}(amount);
+
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 1);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == amount);
+        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingObservers.selector, amount + 10, 10));
+        oSnipe.mintObservers{value: 0.3 ether }(10);
     }
 
-    function testMintWatchersWithMultiplePasses(uint256 amount) public {
-        vm.assume(amount < 10 && amount > 0);
-        testmintWatchers(amount);
+    function testMintObserversWithMultiplePasses() public {
+        uint256 amount = 7;
+        testmintObservers(amount);
 
         changePrank(oSnipe.owner());
-        oSnipe.mintTo(add1);
+        // oSnipe.mintTo(add1);
         changePrank(add1);
-        oSnipe.mintWatchers{value: 10000000000000000 * amount}(amount);
-        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 14);
-        assertTrue(oSnipe.balanceOf(add1, WATCHER_ID) == amount * 2);
+        oSnipe.mintObservers{value: 0.03 ether * amount}(amount);
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 12);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 2);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == amount * 2);
     }
 
-    function testMintProviders() public {
+    function testMintPurveyors() public {
         oSnipe.flipSaleState();
-        prices.push(80000000000000000);
-        prices.push(10000000000000000);
-        prices.push(500000000000000000);
-        oSnipe.setPrice(prices);
 
         startHoax(add1);
         vm.expectRevert('ERC1155: burn amount exceeds totalSupply');
-        oSnipe.burnForProvider{value: 500000000000000000}();
+        oSnipe.burnForPurveyor{value: 3 ether }();
 
-        oSnipe.mintSnipersPass{value: 80000000000000000}();
-        oSnipe.burnForProvider{value: 500000000000000000}();
+        oSnipe.mintSnipers{value: 0.5 ether }();
+        oSnipe.burnForPurveyor{value: 3 ether }();
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
-        assertTrue(oSnipe.balanceOf(add1, PROVIDER_ID) == 1);
+        assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 1);
     }
 
-    function testBurnWatchers(uint256 amount) public {
+    function testredeemObservers(uint256 amount) public {
         vm.assume(amount > 5);
-        testmintWatchers(amount);
+        testmintObservers(amount);
 
         // burn some of balance
-        oSnipe.burnWatchers(amount - 5);
-        assertTrue(oSnipe.balanceOf(add1, WATCHER_ID) == 5);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == amount);
+        oSnipe.redeemObservers(amount - 5);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 5);
 
-        oSnipe.burnWatchers(5);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 1);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_PURVEYOR_ID) == 0);
+
+        oSnipe.redeemObservers(5);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 0);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
-        assertTrue(oSnipe.balanceOf(add1, WATCHER_ID) == 0);
 
         vm.expectRevert(oSnipeGenesis.BurnExceedsMinted.selector);
-        oSnipe.burnWatchers(1);
+        oSnipe.redeemObservers(1);
     }
 
     function testTransferLocks() public {
-        testmintWatchers(5);
+        testmintObservers(5);
         ids.push(SNIPER_ID);
         amounts.push(1);
 
-        // decrease add1 balance (send 3 watchers to add2)
-        oSnipe.safeTransferFrom(add1, add2, WATCHER_ID, 3, "0x");
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 5, 0));
-        oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 1, "0x");
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 5, 0));
-        oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
+        // decrease add1 balance (send 3 observers to add2)
+        oSnipe.safeTransferFrom(add1, add2, OBSERVER_ID, 3, "0x");
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 1);
 
         // reset add1 balance
         changePrank(add2);
-        oSnipe.safeTransferFrom(add2, add1, WATCHER_ID, 3, "0x");
+        oSnipe.safeTransferFrom(add2, add1, OBSERVER_ID, 3, "0x");
 
-        // burn outstanding watchers
+        // burn outstanding observers
         changePrank(add1);
-        oSnipe.burnWatchers(5);
+        oSnipe.redeemObservers(5);
 
         // successful transfer now
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 1);
         oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 1, "0x");
     }
 
@@ -303,100 +259,105 @@ contract oSnipeGenesisTest is Test {
         testTransferLocks();
 
         changePrank(oSnipe.owner());
-        oSnipe.mintTo(add1);
+        // oSnipe.mintTo(add1);
 
-        // balance: 13 snipers, 0 watchers
+        // balance: 13 snipers, 0 observers
         changePrank(add1);
-        oSnipe.mintWatchers{value: 1300000000000000000}(130);
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 13);
+        assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_PURVEYOR_ID) == 0);
+        oSnipe.mintObservers{value: 0.03 ether * 130 }(130);
 
-        // balance: 13 snipers, 130 watchers
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 130, 120));
-        oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 1, "0x");
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 130, 120));
-        oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
+        // balance: 13 snipers, 130 observers
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 13);
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
 
-        oSnipe.burnWatchers(60);
-        // balance: 13 snipers, 70 watchers
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 60));
-        oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 7, "0x");
+        oSnipe.redeemObservers(60);
+        // balance: 13 snipers, 70 observers
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 7);
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 6);
         oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 6, "0x");
-        // balance: 7 snipers, 70 watchers
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 60));
-        oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 1, "0x");
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 60));
-        oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
+        // balance: 7 snipers, 70 observers
 
         amounts[0] = 6;
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 10));
-        oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 6, "0x");
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 10));
-        oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
 
         amounts[0] = 4;
-        oSnipe.burnWatchers(70);
-        // balance: 7 snipers, 0 watchers
+        oSnipe.redeemObservers(70);
+        // balance: 7 snipers, 0 observers
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 7);
         oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 3, "0x");
-        // balance: 4 snipers, 0 watchers
+        // balance: 4 snipers, 0 observers
         oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
-        // balance: 0 snipers, 0 watchers
+        // balance: 0 snipers, 0 observers
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
-        assertTrue(oSnipe.balanceOf(add1, WATCHER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_PURVEYOR_ID) == 0);
     }
 
-    function testTransfersWithMultipleProviders() public {
+    function testTransfersWithMultiplePurveyors() public {
         testTransferLocks();
 
         changePrank(oSnipe.owner());
-        oSnipe.mintTo(add1);
+        // oSnipe.mintTo(add1);
 
-        // balance: 13 snipers, 0 watchers, 0 providers
+        // balance: 13 snipers, 0 observers, 0 purveyors
         changePrank(add1);
         for (uint256 index = 0; index < 7; index++) {
-            oSnipe.burnForProvider{value: 500000000000000000}();
+            oSnipe.burnForPurveyor{value: 3 ether }();
         }
-        // balance: 6 snipers, 0 watchers, 7 providers
+        // balance: 6 snipers, 0 observers, 7 purveyors
 
-        oSnipe.mintWatchers{value: 1300000000000000000}(130);
+        oSnipe.mintObservers{value: 3.9 ether }(130);
 
-        // balance: 6 snipers, 130 watchers, 7 providers
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 130, 120));
-        oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 1, "0x");
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 130, 120));
-        oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
+        // balance: 6 snipers, 130 observers, 7 purveyors
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 130);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 6);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_PURVEYOR_ID) == 7);
 
-        oSnipe.burnWatchers(60);
-        // balance: 6 snipers, 70 watchers, 7 providers
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 60));
-        oSnipe.safeTransferFrom(add1, add2, PROVIDER_ID, 7, "0x");
-        oSnipe.safeTransferFrom(add1, add2, PROVIDER_ID, 6, "0x");
-        // balance: 6 snipers, 70 watchers, 1 providers
+        oSnipe.redeemObservers(65);
+        // balance: 6 snipers, 70 observers, 7 purveyors
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 6);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 65);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 6);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_PURVEYOR_ID) == 1);
 
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 60));
-        oSnipe.safeTransferFrom(add1, add2, PROVIDER_ID, 1, "0x");
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 60));
-        oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
+        oSnipe.safeTransferFrom(add1, add2, PURVEYOR_ID, 6, "0x");
+        // balance: 6 snipers, 70 observers, 1 purveyors
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 65);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 6);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_PURVEYOR_ID) == 1);
 
         amounts[0] = 6;
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 10));
-        oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 6, "0x");
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.TooManyOutstandingWatchers.selector, 70, 10));
-        oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
 
-        oSnipe.burnWatchers(70);
-        // balance: 6 snipers, 0 watchers, 1 providers
+        oSnipe.redeemObservers(65);
+        // balance: 6 snipers, 0 observers, 1 purveyors
+        assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 6);
+        assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 1);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_SNIPER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, COMMITTED_PURVEYOR_ID) == 0);
+
         oSnipe.safeTransferFrom(add1, add2, SNIPER_ID, 6, "0x");
-        // // balance: 0 snipers, 0 watchers, 1 providers
-        ids.push(PROVIDER_ID);
+        // // balance: 0 snipers, 0 observers, 1 purveyors
+        ids.push(PURVEYOR_ID);
         amounts.push(1);
         amounts[0] = 0;
 
         oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
-        // balance: 0 snipers, 0 watchers, 0 providers
+        // balance: 0 snipers, 0 observers, 0 purveyors
         // cannot transfer with no tokens
-        vm.expectRevert(abi.encodeWithSelector(oSnipeGenesis.NotEnoughTokens.selector));
-        oSnipe.safeBatchTransferFrom(add1, add2, ids, amounts, "0x");
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 0);
-        assertTrue(oSnipe.balanceOf(add1, WATCHER_ID) == 0);
-        assertTrue(oSnipe.balanceOf(add1, PROVIDER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, OBSERVER_ID) == 0);
+        assertTrue(oSnipe.balanceOf(add1, PURVEYOR_ID) == 0);
     }
 }

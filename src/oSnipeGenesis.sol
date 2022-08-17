@@ -4,126 +4,159 @@ pragma solidity ^0.8.13;
 import "./ERC1155Guardable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 // 157 123 156 151 160 145 //
 
 contract oSnipeGenesis is ERC1155Guardable, Ownable {
+  using Math for uint;
+
   string public constant name = "oSnipe Genesis Pass";
-  string public constant symbol = "OSG";
+  string public constant symbol = "SNIPE";
+
+  uint256 private constant SNIPER_PRICE = 0.5 ether;
+  uint256 private constant OBSERVER_PRICE = 0.03 ether;
+  uint256 private constant PURVEYOR_PRICE = 3 ether;
+  uint8 private constant SNIPER_ID = 0;
+  uint8 private constant PURVEYOR_ID = 1;
+  uint8 private constant OBSERVER_ID = 2;
+  uint8 private constant COMMITTED_SNIPER_ID = 10;
+  uint8 private constant COMMITTED_PURVEYOR_ID = 11;
 
   uint256 public constant MAX_SNIPERS_SUPPLY = 488;
-  uint256 public constant MAX_WATCHERS_PER_SNIPER = 10;
-  uint256 public sniperPrice;
-  uint256 public watcherPrice;
-  uint256 public providerPrice;
-
+  uint256 public constant MAX_OBSERVERS_PER_SNIPER = 10;
   bytes32 public merkleRoot;
-  mapping(address => uint256) watchersMinted;
+  uint256 public numSnipersMinted;
 
-  uint8 private constant SNIPER_ID = 0;
-  uint8 private constant PROVIDER_ID = 1;
-  uint8 private constant WATCHER_ID = 2;
+  mapping(address => uint256) observersMinted;
 
   constructor() ERC1155("oSnipe") { 
-    
+    _mintSnipers(owner(), 13);
+    _mint(owner(), PURVEYOR_ID, 1, "0x");
+    _mint(owner(), OBSERVER_ID, 100, "0x");
   }
 
+  error CannotTransferCommittedToken();
   error NotEnoughTokens();
   error AlreadyClaimed();
   error InvalidProof(bytes32[] proof);
   error WrongValueSent();
   error SaleIsPaused();
-  error SnipersOnly();
   error BurnExceedsMinted();
-  error TooManyOutstandingWatchers(uint256 numberOfWatchers, uint256 numberAllowed);
+  error TooManyOutstandingObservers(uint256 numberOfObservers, uint256 numberAllowed);
 
-  mapping(address => bool) public bloodlistClaimed;
-  mapping(address => bool) public mintUsed;
+  mapping(address => bool) public alreadyClaimed;
+  mapping(address => bool) public alreadyMinted;
 
   bool public saleIsActive = false;
   bool private quitMinted;
-
-  function setPrice(uint256[] calldata _prices) external onlyOwner {
-    sniperPrice = _prices[0];
-    watcherPrice = _prices[1];
-    providerPrice = _prices[2];
-  }
 
   function flipSaleState() external onlyOwner {
     saleIsActive = !saleIsActive;
   }
 
-  function mintTo(address to) external onlyOwner {
-    if (quitMinted) revert();
+  function claimSniper(bytes32[] calldata _proof) public {
+    if (alreadyClaimed[msg.sender]) revert AlreadyClaimed();
 
-    quitMinted = true;
-    _mintSnipers(to, 13);
-  }
-
-  function mintSnipersPass() public payable {
-    if (!saleIsActive) revert SaleIsPaused();
-    if (msg.value != sniperPrice) revert WrongValueSent();
-    if (mintUsed[_msgSender()]) revert AlreadyClaimed();
-
-    mintUsed[_msgSender()] = true;
-    _mintSnipers(_msgSender(), 1);
-  }
-
-  function mintSnipersPassAndLock(address guardian) external payable {
-    lockApprovals(guardian);
-    mintSnipersPass();
-  }
-
-  function mintWatchers(uint256 amount) external payable {
-    if (msg.value != amount * watcherPrice) revert WrongValueSent();
-
-    uint256 newBalance = watchersMinted[msg.sender] + amount;
-
-    if (newBalance > maxWatchersPermitted(_sniperAndProviderBalance(msg.sender))) {
-      revert TooManyOutstandingWatchers(newBalance, maxWatchersPermitted(_sniperAndProviderBalance(msg.sender)));
-    }
-
-    watchersMinted[msg.sender] = newBalance;
-
-    super._mint(msg.sender, WATCHER_ID, amount, "0x");
-  }
-
-  function burnWatchers(uint256 amount) external {
-    if (watchersMinted[msg.sender] < amount) revert BurnExceedsMinted();
-    
-    unchecked { watchersMinted[msg.sender] -= amount; }
-
-    _burn(msg.sender, WATCHER_ID, amount);
-  }
-
-  function burnForProvider() external payable {
-    if (msg.value != providerPrice) revert WrongValueSent();
-
-    _burn(msg.sender, SNIPER_ID, 1);
-    super._mint(msg.sender, PROVIDER_ID, 1, "0x");
-  }
-
-  function claimSnipersPass(bytes32[] calldata _proof) public {
-    if (bloodlistClaimed[_msgSender()]) revert AlreadyClaimed();
-
-    bytes32 leaf = keccak256((abi.encodePacked(_msgSender())));
+    bytes32 leaf = keccak256((abi.encodePacked(msg.sender)));
 
     if (!MerkleProof.verify(_proof, merkleRoot, leaf)) {
       revert InvalidProof(_proof);
     }
 
-    bloodlistClaimed[_msgSender()] = true;
-
-    _mintSnipers(_msgSender(), 1);
+    alreadyClaimed[msg.sender] = true;
+    _mintSnipers(msg.sender, 1);
   }
 
-  function claimSnipersPassAndLock(bytes32[] calldata _proof, address guardian) external {
-    lockApprovals(guardian);
-    claimSnipersPass(_proof);
+  function mintSnipers() public payable {
+    if (!saleIsActive) revert SaleIsPaused();
+    if (msg.value != SNIPER_PRICE) revert WrongValueSent();
+    if (alreadyMinted[msg.sender]) revert AlreadyClaimed();
+
+    alreadyMinted[msg.sender] = true;
+    _mintSnipers(msg.sender, 1);
   }
 
-  function maxWatchersPermitted(uint256 sniperAndProviderBalance) public pure returns (uint) {
-    return sniperAndProviderBalance * MAX_WATCHERS_PER_SNIPER;
+  function mintObservers(uint256 amount) public payable {
+    if (msg.value != amount * OBSERVER_PRICE) revert WrongValueSent();
+
+    uint256 newBalance = observersMinted[msg.sender] + amount;
+
+    if (newBalance > maxObserversPermitted(_committedTokenBalance(msg.sender))) {
+      uint256 maxObserversPossible = maxObserversPermitted(_uncommittedTokenBalance(msg.sender)) + maxObserversPermitted(_committedTokenBalance(msg.sender)) - observersMinted[msg.sender];
+
+      if (newBalance > maxObserversPossible) {
+        revert TooManyOutstandingObservers(newBalance, maxObserversPermitted(_committedTokenBalance(msg.sender)));
+      }
+
+      uint256 observerDelta = amount - (maxObserversPermitted(_committedTokenBalance(msg.sender)) - observersMinted[msg.sender]);
+      uint256 toBeCommitted = observerDelta.ceilDiv(10);
+
+      if (balanceOf(msg.sender, SNIPER_ID) >= toBeCommitted) {
+        _burn(msg.sender, SNIPER_ID, toBeCommitted);
+        _mint(msg.sender, COMMITTED_SNIPER_ID, toBeCommitted, "0x");
+      } else {
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = SNIPER_ID;
+        ids[1] = PURVEYOR_ID;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = balanceOf(msg.sender, SNIPER_ID);
+        amounts[1] = toBeCommitted - amounts[0];
+
+        _burnBatch(msg.sender, ids, amounts);
+
+        unchecked { ids[0] += 10; }
+        unchecked { ids[1] += 10; }
+
+        _mintBatch(msg.sender, ids, amounts, "0x");
+      }
+    }
+
+    observersMinted[msg.sender] = newBalance;
+
+    _mint(msg.sender, OBSERVER_ID, amount, "0x");
+  }
+
+  function redeemObservers(uint256 amount) external {
+    if (observersMinted[msg.sender] < amount) revert BurnExceedsMinted();
+    
+    unchecked { observersMinted[msg.sender] -= amount; }
+
+    _burn(msg.sender, OBSERVER_ID, amount);
+    uint256 observerDelta = maxObserversPermitted(_committedTokenBalance(msg.sender)) - balanceOf(msg.sender, OBSERVER_ID);
+    uint256 toBeUncommitted = observerDelta / 10;
+    
+    if (balanceOf(msg.sender, COMMITTED_PURVEYOR_ID) >= toBeUncommitted) {
+      _burn(msg.sender, COMMITTED_PURVEYOR_ID, toBeUncommitted);
+      _mint(msg.sender, PURVEYOR_ID, toBeUncommitted, "0x");
+    } else {
+      uint256[] memory ids = new uint256[](2);
+      ids[0] = COMMITTED_PURVEYOR_ID;
+      ids[1] = COMMITTED_SNIPER_ID;
+
+      uint256[] memory amounts = new uint256[](2);
+      amounts[0] = balanceOf(msg.sender, COMMITTED_PURVEYOR_ID);
+      amounts[1] = toBeUncommitted - amounts[0];
+
+      _burnBatch(msg.sender, ids, amounts);
+
+      unchecked { ids[0] -= 10; }
+      unchecked { ids[1] -= 10; }
+
+      _mintBatch(msg.sender, ids, amounts, "0x");
+    }
+  }
+
+  function burnForPurveyor() external payable {
+    if (msg.value != PURVEYOR_PRICE) revert WrongValueSent();
+
+    _burn(msg.sender, SNIPER_ID, 1);
+    _mint(msg.sender, PURVEYOR_ID, 1, "0x");
+  }
+
+  function maxObserversPermitted(uint256 committedTokenBalance) public pure returns (uint) {
+    return committedTokenBalance * MAX_OBSERVERS_PER_SNIPER;
   }
 
   function safeTransferFrom(
@@ -133,12 +166,8 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     uint256 amount,
     bytes memory data
   ) public override {
-    if (id != WATCHER_ID) {
-      uint256 newBalance = _sniperAndProviderBalance(msg.sender) - amount;
-
-      if (watchersMinted[msg.sender] > newBalance * MAX_WATCHERS_PER_SNIPER) {
-        revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(newBalance));
-      }
+    if (id == COMMITTED_SNIPER_ID || id == COMMITTED_PURVEYOR_ID) {
+      revert CannotTransferCommittedToken();
     }
     super.safeTransferFrom(from, to, id, amount, data);
   }
@@ -150,16 +179,12 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
       uint256[] memory amounts,
       bytes memory data
   ) public override {
-      uint256 newBalance = _sniperAndProviderBalance(msg.sender);
-
       for (uint256 i = 0; i < ids.length; i++ ) {
-        if (balanceOf(from, ids[i]) < amounts[i]) revert NotEnoughTokens();
-        if (ids[i] != WATCHER_ID) newBalance -= amounts[i];
+        if (ids[i] == COMMITTED_PURVEYOR_ID || ids[i] == COMMITTED_SNIPER_ID) {
+          revert CannotTransferCommittedToken();
+        }
       }
 
-      if (watchersMinted[msg.sender] > newBalance * MAX_WATCHERS_PER_SNIPER) {
-        revert TooManyOutstandingWatchers(watchersMinted[msg.sender], maxWatchersPermitted(newBalance));
-      }
       super.safeBatchTransferFrom(from, to, ids, amounts, data);
   }
 
@@ -178,17 +203,22 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   }
 
   function withdraw() external onlyOwner {
-    (bool success, ) = _msgSender().call{value: address(this).balance}("");
+    (bool success, ) = msg.sender.call{value: address(this).balance}("");
     if (!success) revert WrongValueSent();
   }
 
-  function _sniperAndProviderBalance(address user) internal view returns (uint256) {
-    return balanceOf(user, SNIPER_ID) + balanceOf(user, PROVIDER_ID);
+  function _committedTokenBalance(address user) internal view returns (uint256) {
+    return balanceOf(user, COMMITTED_SNIPER_ID) + balanceOf(user, COMMITTED_PURVEYOR_ID);
+  }
+
+  function _uncommittedTokenBalance(address user) internal view returns (uint256) {
+    return balanceOf(user, SNIPER_ID) + balanceOf(user, PURVEYOR_ID);
   }
 
   function _mintSnipers(address to, uint256 amount) internal {
-    if (totalSupply(SNIPER_ID) + amount > MAX_SNIPERS_SUPPLY) revert NotEnoughTokens();
+    if (numSnipersMinted + amount > MAX_SNIPERS_SUPPLY) revert NotEnoughTokens();
 
-    super._mint(to, SNIPER_ID, amount, "0x");
+    unchecked { numSnipersMinted += amount; }
+    _mint(to, SNIPER_ID, amount, "0x");
   }
 }

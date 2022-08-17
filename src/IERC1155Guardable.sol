@@ -14,9 +14,9 @@ interface IERC1155Guardable is IERC165 {
   event GuardianAdded(address indexed addressGuarded, address indexed guardian);
   event GuardianRemoved(address indexed addressGuarded);
 
-  function lockApprovals(address guardian) external;
+  function setGuardian(address guardian) external;
 
-  function unlockApprovals(address tokenOwner) external;
+  function removeGuardianOf(address tokenOwner) external;
 
   function setApprovalForAll(address operator, bool approved) external;
 
