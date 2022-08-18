@@ -34,10 +34,11 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
 
   mapping(address => uint256) observersMinted;
 
-  constructor(string memory _uri) ERC1155(_uri) { 
+  constructor(string memory _uri, bytes32 _root) ERC1155(_uri) { 
     _mintSnipers(owner(), 13);
     _mint(owner(), PURVEYOR_ID, 1, "");
     _mint(owner(), OBSERVER_ID, 100, "");
+    merkleRoot = _root;
   }
 
   error CannotTransferCommittedToken();
@@ -53,7 +54,6 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   mapping(address => bool) public alreadyMinted;
 
   bool public saleIsActive = false;
-  bool private quitMinted;
 
   /// @notice Sets a new root for free claim verification
   /// @param _root The root to set
@@ -121,7 +121,9 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
     uint256 newBalance = observersMinted[msg.sender] + amount;
 
     if (newBalance > maxObserversPermitted(_committedTokenBalance(msg.sender))) {
-      uint256 maxObserversPossible = maxObserversPermitted(_uncommittedTokenBalance(msg.sender)) + maxObserversPermitted(_committedTokenBalance(msg.sender)) - observersMinted[msg.sender];
+      uint256 maxObserversPossible = maxObserversPermitted(_uncommittedTokenBalance(msg.sender))
+                                    + maxObserversPermitted(_committedTokenBalance(msg.sender))
+                                    - observersMinted[msg.sender];
 
       if (newBalance > maxObserversPossible) {
         revert TooManyOutstandingObservers(newBalance, maxObserversPermitted(_committedTokenBalance(msg.sender)));
@@ -158,8 +160,8 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
 
   /**
   * @notice Redeems Observer Passes and uncommits as many committed NFTs as possible without
-  * falling below the maximum allowed ratio of `MAX_OBSERVERS_PER_COMMITTED` per Sniper/Observer.
-  * Note that Purveyors are uncommitted first, followed by Snipers.
+  * falling below the maximum allowed ratio of `MAX_OBSERVERS_PER_COMMITTED` per Sniper/Purveyor.
+  * Note Purveyors are uncommitted first, followed by Snipers.
   */
   /// @param amount The number of Observers to redeem (burn).
   function redeemObservers(uint256 amount) external {
