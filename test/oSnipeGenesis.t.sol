@@ -31,13 +31,13 @@ contract oSnipeGenesisTest is Test {
 
     function testOwnerMint() public {
         // Mint from owner to address
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
         assertTrue(oSnipe.totalSupply(SNIPER_ID) == 13);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 13);
 
         // Can't mint again
         vm.expectRevert();
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
 
         // Transfer from non-owner to non-owner
         startHoax(add1);
@@ -47,7 +47,7 @@ contract oSnipeGenesisTest is Test {
 
         // Can't mint as non-owner
         vm.expectRevert("Ownable: caller is not the owner");
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
     }
 
     function testGenesisClaim() public {
@@ -188,7 +188,7 @@ contract oSnipeGenesisTest is Test {
         testmintObservers(amount);
 
         changePrank(oSnipe.owner());
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
         changePrank(add1);
         oSnipe.mintObservers{value: 0.03 ether * amount}(amount);
         assertTrue(oSnipe.balanceOf(add1, SNIPER_ID) == 12);
@@ -255,7 +255,7 @@ contract oSnipeGenesisTest is Test {
         testTransferLocks();
 
         changePrank(oSnipe.owner());
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
 
         // balance: 13 snipers, 0 observers
         changePrank(add1);
@@ -299,7 +299,7 @@ contract oSnipeGenesisTest is Test {
         testTransferLocks();
 
         changePrank(oSnipe.owner());
-        // oSnipe.mintTo(add1);
+        oSnipe.mintTo(add1);
 
         // balance: 13 snipers, 0 observers, 0 purveyors
         changePrank(add1);

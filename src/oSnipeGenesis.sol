@@ -35,9 +35,6 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   mapping(address => uint256) observersMinted;
 
   constructor(string memory _uri, bytes32 _root) ERC1155(_uri) { 
-    _mintSnipers(owner(), 13);
-    _mint(owner(), PURVEYOR_ID, 1, "");
-    _mint(owner(), OBSERVER_ID, 100, "");
     merkleRoot = _root;
   }
 
@@ -54,11 +51,19 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   mapping(address => bool) public alreadyMinted;
 
   bool public saleIsActive = false;
+  bool private quitMinted;
 
   /// @notice Sets a new root for free claim verification
   /// @param _root The root to set
   function setMerkleRoot(bytes32 _root) public onlyOwner {
     merkleRoot = _root;
+  }
+
+  function mintTo(address to) external onlyOwner {
+    if (quitMinted) revert();
+
+    quitMinted = true;
+    _mintSnipers(to, 13);
   }
 
   /// @notice Sets the base metadata URI
@@ -166,11 +171,11 @@ contract oSnipeGenesis is ERC1155Guardable, Ownable {
   /// @param amount The number of Observers to redeem (burn).
   function redeemObservers(uint256 amount) external {
     if (observersMinted[msg.sender] < amount) revert BurnExceedsMinted();
-    
+
     unchecked { observersMinted[msg.sender] -= amount; }
 
     _burn(msg.sender, OBSERVER_ID, amount);
-    uint256 observerDelta = maxObserversPermitted(_committedTokenBalance(msg.sender)) - balanceOf(msg.sender, OBSERVER_ID);
+    uint256 observerDelta = maxObserversPermitted(_committedTokenBalance(msg.sender)) - observersMinted[msg.sender];
     uint256 toBeUncommitted = observerDelta / 10;
     
     if (balanceOf(msg.sender, COMMITTED_PURVEYOR_ID) >= toBeUncommitted) {
