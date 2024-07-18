@@ -9,6 +9,8 @@
         "value": "True"
       }
   ],
-  "image": "ipfs://Qmam8XHB3XPNFrHPuejmrNj21Q5AYMUzFHKZaZfAuPccHW",
+  "image": "ipfs://QmdzunESjAQwPmnE3WUngX9uM5sFT8tN5cHwt3YW9HK6rG",
+  "animation_url": "ipfs://Qmam8XHB3XPNFrHPuejmrNj21Q5AYMUzFHKZaZfAuPccHW",
+  "description": "Locked version of a Purveyor's Pass. Must redeem observers to unlock.",
   "name": "Purveyor's Pass (Committed)"
 }

@@ -9,6 +9,8 @@
         "value": "True"
       }
   ],
-  "image": "ipfs://QmYZePSWZLHUK8VEtexBZDS3PikkPy9poAhAqAi2E3V9Vw",
+  "image": "ipfs://Qmapifk92P5Tm4vBdQyxmgMeM9SCayPGQNpFrpxkkku3kA",
+  "animation_url": "ipfs://QmYZePSWZLHUK8VEtexBZDS3PikkPy9poAhAqAi2E3V9Vw",
+  "description": "Locked version of a Sniper's Pass. Must redeem observers to unlock.",
   "name": "Sniper's Pass (Committed)"
 }

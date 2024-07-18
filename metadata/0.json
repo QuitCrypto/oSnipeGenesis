@@ -9,6 +9,8 @@
         "value": "False"
       }
   ],
-  "image": "ipfs://QmYZePSWZLHUK8VEtexBZDS3PikkPy9poAhAqAi2E3V9Vw",
+  "image": "ipfs://Qmapifk92P5Tm4vBdQyxmgMeM9SCayPGQNpFrpxkkku3kA",
+  "animation_url": "ipfs://QmYZePSWZLHUK8VEtexBZDS3PikkPy9poAhAqAi2E3V9Vw",
+  "description": "Your key to oSnipe. The Sniper's Pass grants access to member channels in discord, a private channel to configure as your custom notification feed, and most importantly: access to the Autosniper across all major EVM chains.",
   "name": "Sniper's Pass"
 }
